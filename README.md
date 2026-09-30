@@ -19,6 +19,13 @@
 
 `handle`은 상품 URL의 `/products/` 뒷부분, `variants`는 `"all"` 또는 variant id 배열.
 
+## 관심 목록 관리 웹 UI
+
+GitHub Pages(`/docs`)에서 제공된다: https://pjunhyk.github.io/restock-notifier/
+
+- 상품명 검색 또는 상품 URL 붙여넣기 → 옵션 체크 → 저장
+- 저장하려면 설정에서 GitHub Fine-grained 토큰(이 저장소 하나, Contents 읽기/쓰기, 만료일 설정)을 넣는다. 토큰은 브라우저 localStorage에만 저장된다. 토큰이 없으면 `watchlist.json`을 내려받아 직접 커밋한다.
+
 ## 로컬 실행
 
 ```bash

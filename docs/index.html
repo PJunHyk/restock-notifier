@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>재입고 관심 목록</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --surface: #fff; --text: #1c2026; --muted: #667085; --line: #e2e5ea;
+    --accent: #2563eb; --accent-text: #fff; --ok-bg: #dcfce7; --ok: #166534; --out-bg: #f1f3f5; --out: #5b6470;
+    --warn-bg: #fef3c7; --warn: #92400e; --err: #b42318;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #101215; --surface: #181b20; --text: #e8eaee; --muted: #9aa3b0; --line: #2a2f37;
+      --accent: #5b8def; --accent-text: #0b1220; --ok-bg: #123b22; --ok: #86efac; --out-bg: #23272e; --out: #a8b0bc;
+      --warn-bg: #3b2a0a; --warn: #fcd34d; --err: #f97066;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 16px 16px 96px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  h1 { font-size: 20px; margin: 0; }
+  button { font: inherit; cursor: pointer; border: 1px solid var(--line); background: var(--surface); color: var(--text); border-radius: 8px; padding: 7px 12px; }
+  button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
+  button:disabled { opacity: .5; cursor: default; }
+  input[type=search], input[type=password], input[type=text] { font: inherit; width: 100%; padding: 9px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text); }
+  .tabs { display: flex; gap: 6px; margin: 12px 0; }
+  .tabs button { flex: 1; }
+  .tabs button[aria-selected=true] { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
+  .tools { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+  .tools label { color: var(--muted); font-size: 14px; display: flex; align-items: center; gap: 6px; }
+  .notice { padding: 10px 12px; border-radius: 8px; background: var(--warn-bg); color: var(--warn); margin-bottom: 12px; font-size: 14px; }
+  .notice.err { color: var(--err); }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 10px; }
+  .card.watched { border-color: var(--accent); }
+  .head { display: flex; gap: 12px; align-items: flex-start; }
+  .thumb { width: 56px; height: 56px; border-radius: 8px; object-fit: cover; background: var(--out-bg); flex: none; }
+  .title { font-weight: 600; word-break: break-word; }
+  .title a { color: inherit; text-decoration: none; }
+  .title a:hover { text-decoration: underline; }
+  .meta { color: var(--muted); font-size: 13px; }
+  .rows { margin-top: 8px; border-top: 1px solid var(--line); }
+  .row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+  .row:last-child { border-bottom: 0; }
+  .row label { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0; word-break: break-word; }
+  .row.all { color: var(--muted); font-size: 14px; }
+  input[type=checkbox] { width: 18px; height: 18px; flex: none; accent-color: var(--accent); }
+  .pill { font-size: 12px; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+  .pill.in { background: var(--ok-bg); color: var(--ok); }
+  .pill.out { background: var(--out-bg); color: var(--out); }
+  .price { color: var(--muted); font-size: 13px; min-width: 56px; text-align: right; }
+  .bar { position: fixed; left: 0; right: 0; bottom: 0; background: var(--surface); border-top: 1px solid var(--line); padding: 10px 16px; display: none; }
+  .bar.show { display: block; }
+  .bar .in { max-width: 860px; margin: 0 auto; display: flex; align-items: center; gap: 8px; }
+  .bar .msg { flex: 1; font-size: 14px; }
+  .empty { color: var(--muted); text-align: center; padding: 32px 0; }
+  dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--text); max-width: 460px; width: calc(100% - 32px); }
+  dialog::backdrop { background: rgba(0,0,0,.45); }
+  dialog p, dialog li { font-size: 14px; color: var(--muted); }
+  dialog .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>재입고 관심 목록</h1>
+    <button id="settingsBtn" type="button">설정</button>
+  </header>
+
+  <div id="notice" class="notice" hidden></div>
+
+  <div class="tabs" role="tablist">
+    <button type="button" role="tab" id="tabWatch" aria-selected="true">관심 목록 (0)</button>
+    <button type="button" role="tab" id="tabAll" aria-selected="false">전체 상품 (0)</button>
+  </div>
+
+  <div class="tools">
+    <input type="search" id="q" placeholder="상품명 검색 또는 상품 URL 붙여넣기" autocomplete="off">
+    <label id="outOnlyLabel" hidden><input type="checkbox" id="outOnly"> 품절 옵션이 있는 상품만</label>
+  </div>
+
+  <div id="list"></div>
+  <div class="meta" id="more" style="text-align:center"></div>
+</div>
+
+<div class="bar" id="bar"><div class="in">
+  <span class="msg" id="barMsg"></span>
+  <button type="button" id="revertBtn">되돌리기</button>
+  <button type="button" id="saveBtn" class="primary">저장</button>
+</div></div>
+
+<dialog id="settings">
+  <form method="dialog" id="settingsForm">
+    <h2 style="margin-top:0;font-size:17px">GitHub 토큰</h2>
+    <p>저장 버튼으로 관심 목록을 저장소에 바로 반영하려면 토큰이 필요합니다. 토큰이 없으면 파일로 내보내 직접 커밋합니다.</p>
+    <ul>
+      <li>Fine-grained token, 이 저장소 하나만 선택</li>
+      <li>Repository permissions: Contents — Read and write (그 외 없음)</li>
+      <li>만료일 설정</li>
+      <li>이 브라우저의 localStorage에만 저장되며 어디에도 전송되지 않습니다 (GitHub API 제외)</li>
+    </ul>
+    <input type="password" id="token" placeholder="github_pat_..." autocomplete="off" spellcheck="false">
+    <div class="actions">
+      <button type="button" id="clearToken">토큰 삭제</button>
+      <button type="button" id="closeSettings">닫기</button>
+      <button type="submit" class="primary" value="save">저장</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+const SHOP = 'https://thetoyspot.net';
+const FALLBACK_REPO = 'PJunHyk/restock-notifier';
+const FILE = 'data/watchlist.json';
+const PAGE = 40;
+
+const REPO = (() => {
+  const m = location.hostname.match(/^(.+)\.github\.io$/);
+  const seg = location.pathname.split('/')[1];
+  return m && seg ? `${m[1]}/${seg}` : FALLBACK_REPO;
+})();
+
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} },
+};
+
+const h = (tag, props = {}, ...kids) => {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === 'class') e.className = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (['checked', 'disabled', 'value', 'hidden'].includes(k)) e[k] = v;
+    else e.setAttribute(k, v);
+  }
+  e.append(...kids.flat().filter((x) => x != null && x !== false));
+  return e;
+};
+const $ = (id) => document.getElementById(id);
+
+let catalog = [];              // [{handle,title,image,variants:[{id,title,available,price}]}]
+let byHandle = new Map();
+let saved = {};                // handle -> 'all' | number[]
+let draft = {};
+let sha = null;
+let tab = 'watch';
+let shown = PAGE;
+
+const isDefault = (p) => p.variants.length === 1 && p.variants[0].title === 'Default Title';
+const norm = (v) => (v === 'all' ? 'all' : [...v].sort((a, b) => a - b));
+const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+const changedHandles = () => [...new Set([...Object.keys(saved), ...Object.keys(draft)])].filter((k) => !same(saved[k], draft[k]));
+
+function notice(text, err = false) {
+  const n = $('notice');
+  n.hidden = !text;
+  n.textContent = text || '';
+  n.className = 'notice' + (err ? ' err' : '');
+}
+
+/* ---------- 데이터 로딩 ---------- */
+async function fetchCatalog() {
+  const out = [];
+  for (let page = 1; page <= 20; page++) {
+    const res = await fetch(`${SHOP}/products.json?limit=250&page=${page}`);
+    if (!res.ok) throw new Error(`상품 목록 로딩 실패 (HTTP ${res.status})`);
+    const { products } = await res.json();
+    for (const p of products) {
+      const src = p.images?.[0]?.src;
+      out.push({
+        handle: p.handle,
+        title: p.title,
+        image: src ? `${src}${src.includes('?') ? '&' : '?'}width=120` : null,
+        variants: p.variants.map((v) => ({ id: v.id, title: v.title, available: v.available === true, price: v.price })),
+      });
+    }
+    if (products.length < 250) break;
+  }
+  return out;
+}
+
+const ghHeaders = () => {
+  const t = store.get('rn.token');
+  return { Accept: 'application/vnd.github+json', ...(t ? { Authorization: `Bearer ${t}` } : {}) };
+};
+
+async function loadWatchlist() {
+  const res = await fetch(`https://api.github.com/repos/${REPO}/contents/${FILE}?ref=main`, { headers: ghHeaders(), cache: 'no-store' });
+  if (!res.ok) throw new Error(`관심 목록 로딩 실패 (HTTP ${res.status})`);
+  const j = await res.json();
+  sha = j.sha;
+  const text = new TextDecoder().decode(Uint8Array.from(atob(j.content.replace(/\n/g, '')), (c) => c.charCodeAt(0)));
+  const items = JSON.parse(text).items ?? [];
+  saved = {};
+  for (const it of items) saved[it.handle] = norm(it.variants);
+  draft = structuredClone(saved);
+}
+
+const serialize = () => {
+  const items = Object.keys(draft).sort().map((handle) => ({ handle, variants: draft[handle] }));
+  return JSON.stringify({ items }, null, 2) + '\n';
+};
+
+async function save() {
+  const token = store.get('rn.token');
+  const body = serialize();
+  if (!token) {
+    const a = h('a', { href: URL.createObjectURL(new Blob([body], { type: 'application/json' })), download: 'watchlist.json' });
+    document.body.append(a); a.click(); a.remove();
+    notice('watchlist.json을 내려받았습니다. 저장소의 data/watchlist.json을 이 파일로 교체해 커밋하세요.');
+    return;
+  }
+  $('saveBtn').disabled = true;
+  try {
+    const bytes = new TextEncoder().encode(body);
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode(...bytes.subarray(i, i + 8192));
+    const res = await fetch(`https://api.github.com/repos/${REPO}/contents/${FILE}`, {
+      method: 'PUT',
+      headers: { ...ghHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'chore: update watchlist', content: btoa(bin), sha, branch: 'main' }),
+    });
+    if (res.status === 409 || res.status === 422) throw new Error('다른 곳에서 먼저 변경되었습니다. 새로고침한 뒤 다시 시도하세요.');
+    if (res.status === 401 || res.status === 403 || res.status === 404) throw new Error('토큰이 없거나 권한이 부족합니다. 설정에서 토큰(Contents 읽기/쓰기, 이 저장소)을 확인하세요.');
+    if (!res.ok) throw new Error(`저장 실패 (HTTP ${res.status})`);
+    sha = (await res.json()).content.sha;
+    saved = structuredClone(draft);
+    notice('저장했습니다. 새로 추가한 상품은 다음 실행 때 기준 상태만 기록하고, 그 다음부터 알림이 갑니다.');
+  } catch (e) {
+    notice(e.message, true);
+  } finally {
+    $('saveBtn').disabled = false;
+    render();
+  }
+}
+
+/* ---------- 렌더링 ---------- */
+function stubFor(handle) {
+  return { handle, title: handle, image: null, variants: [], stub: true };
+}
+
+function setWatch(handle, value) {
+  if (value == null || (Array.isArray(value) && !value.length)) delete draft[handle];
+  else draft[handle] = value;
+}
+
+function card(p) {
+  const w = draft[p.handle];
+  const el = h('div', { class: 'card' + (w ? ' watched' : '') });
+  const prices = p.variants.map((v) => Number(v.price)).filter((n) => !Number.isNaN(n));
+  const priceText = prices.length ? (Math.min(...prices) === Math.max(...prices) ? `${Math.min(...prices)}` : `${Math.min(...prices)} ~ ${Math.max(...prices)}`) : '';
+  const inCount = p.variants.filter((v) => v.available).length;
+
+  el.append(h('div', { class: 'head' },
+    p.image ? h('img', { class: 'thumb', src: p.image, alt: '', loading: 'lazy' }) : h('div', { class: 'thumb' }),
+    h('div', {},
+      h('div', { class: 'title' }, h('a', { href: `${SHOP}/products/${p.handle}`, target: '_blank', rel: 'noopener' }, p.title)),
+      h('div', { class: 'meta' }, p.stub ? '카탈로그에 없는 상품' : `${priceText} · 재고 ${inCount}/${p.variants.length}`),
+    ),
+  ));
+
+  const rows = h('div', { class: 'rows' });
+  const rerender = () => { el.replaceWith(card(p)); updateChrome(); };
+
+  if (p.stub) {
+    rows.append(h('div', { class: 'row' }, h('label', {}, h('input', { type: 'checkbox', checked: true, onchange: () => { setWatch(p.handle, null); rerender(); } }), '관심 해제')));
+  } else if (isDefault(p)) {
+    const v = p.variants[0];
+    rows.append(h('div', { class: 'row' },
+      h('label', {}, h('input', { type: 'checkbox', checked: !!w, onchange: (e) => { setWatch(p.handle, e.target.checked ? 'all' : null); rerender(); } }), '이 상품 알림'),
+      h('span', { class: 'pill ' + (v.available ? 'in' : 'out') }, v.available ? '재고 있음' : '품절'),
+    ));
+  } else {
+    const ids = w === 'all' ? p.variants.map((v) => v.id) : (w ?? []);
+    rows.append(h('div', { class: 'row all' },
+      h('label', {}, h('input', {
+        type: 'checkbox', checked: w === 'all',
+        onchange: (e) => { setWatch(p.handle, e.target.checked ? 'all' : norm(p.variants.map((v) => v.id))); rerender(); },
+      }), '모든 옵션 (나중에 추가되는 옵션 포함)'),
+    ));
+    for (const v of p.variants) {
+      rows.append(h('div', { class: 'row' },
+        h('label', {}, h('input', {
+          type: 'checkbox', checked: ids.includes(v.id), disabled: w === 'all',
+          onchange: (e) => {
+            const next = new Set(ids);
+            e.target.checked ? next.add(v.id) : next.delete(v.id);
+            setWatch(p.handle, norm([...next]));
+            rerender();
+          },
+        }), v.title),
+        h('span', { class: 'pill ' + (v.available ? 'in' : 'out') }, v.available ? '재고 있음' : '품절'),
+        h('span', { class: 'price' }, v.price),
+      ));
+    }
+  }
+  el.append(rows);
+  return el;
+}
+
+function currentList() {
+  const raw = $('q').value.trim();
+  const m = raw.match(/\/products\/([^/?#\s]+)/);
+  const q = (m ? decodeURIComponent(m[1]) : raw).toLowerCase();
+  let list;
+  if (tab === 'watch') {
+    list = Object.keys(draft).sort().map((hd) => byHandle.get(hd) ?? stubFor(hd));
+  } else {
+    list = catalog;
+    if ($('outOnly').checked) list = list.filter((p) => p.variants.some((v) => !v.available));
+  }
+  if (q) list = list.filter((p) => p.title.toLowerCase().includes(q) || p.handle.toLowerCase().includes(q));
+  return list;
+}
+
+function updateChrome() {
+  $('tabWatch').textContent = `관심 목록 (${Object.keys(draft).length})`;
+  $('tabAll').textContent = `전체 상품 (${catalog.length})`;
+  const n = changedHandles().length;
+  $('bar').classList.toggle('show', n > 0);
+  $('barMsg').textContent = `변경 ${n}건`;
+  $('saveBtn').textContent = store.get('rn.token') ? '저장' : '파일로 내보내기';
+}
+
+function render() {
+  const list = currentList();
+  const box = $('list');
+  box.replaceChildren();
+  if (!list.length) {
+    box.append(h('div', { class: 'empty' }, tab === 'watch' && !$('q').value ? '관심 상품이 없습니다. "전체 상품" 탭에서 추가하세요.' : '결과가 없습니다.'));
+  }
+  for (const p of list.slice(0, shown)) box.append(card(p));
+  const more = $('more');
+  more.replaceChildren();
+  if (list.length > shown) more.append(h('button', { type: 'button', onclick: () => { shown += PAGE; render(); } }, `더 보기 (${list.length - shown}개 남음)`));
+  $('outOnlyLabel').hidden = tab !== 'all';
+  $('tabWatch').setAttribute('aria-selected', tab === 'watch');
+  $('tabAll').setAttribute('aria-selected', tab === 'all');
+  updateChrome();
+}
+
+/* ---------- 이벤트 ---------- */
+$('tabWatch').onclick = () => { tab = 'watch'; shown = PAGE; render(); };
+$('tabAll').onclick = () => { tab = 'all'; shown = PAGE; render(); };
+$('q').addEventListener('input', () => {
+  if (/\/products\//.test($('q').value) && tab === 'watch') tab = 'all'; // URL 붙여넣기 → 전체에서 찾기
+  shown = PAGE; render();
+});
+$('outOnly').onchange = () => { shown = PAGE; render(); };
+$('saveBtn').onclick = save;
+$('revertBtn').onclick = () => { draft = structuredClone(saved); notice(''); render(); };
+$('settingsBtn').onclick = () => { $('token').value = store.get('rn.token') ?? ''; $('settings').showModal(); };
+$('closeSettings').onclick = () => $('settings').close();
+$('clearToken').onclick = () => { store.del('rn.token'); $('token').value = ''; updateChrome(); };
+$('settingsForm').addEventListener('submit', () => {
+  const t = $('token').value.trim();
+  t ? store.set('rn.token', t) : store.del('rn.token');
+  updateChrome();
+});
+window.addEventListener('beforeunload', (e) => { if (changedHandles().length) { e.preventDefault(); e.returnValue = ''; } });
+
+(async () => {
+  try {
+    const [cat] = await Promise.all([fetchCatalog(), loadWatchlist()]);
+    catalog = cat;
+    byHandle = new Map(cat.map((p) => [p.handle, p]));
+    if (!Object.keys(draft).length) tab = 'all';
+    render();
+  } catch (e) {
+    notice(e.message, true);
+  }
+})();
+</script>
+</body>
+</html>
