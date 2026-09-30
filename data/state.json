@@ -1,3 +1,18 @@
 {
-  "products": {}
+  "products": {
+    "potential-man-culling-kit": {
+      "45943355768967": true,
+      "45943426613383": false,
+      "45943426646151": true,
+      "45943426678919": true,
+      "45943426711687": true
+    },
+    "the-strongest-faceplates-battle-damaged": {
+      "44605683662983": false,
+      "44605683695751": false,
+      "44605683728519": false,
+      "44605683761287": false,
+      "44606587830407": false
+    }
+  }
 }
