@@ -1,0 +1,77 @@
+name: check-restock
+
+on:
+  schedule:
+    # 매시 7분(UTC). 뉴욕 시각 기준 스케줄 필터는 아래 gate 단계에서 처리한다.
+    - cron: '7 * * * *'
+  workflow_dispatch:
+    inputs:
+      test_notify:
+        description: 테스트 알림만 보내기
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: restock
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # 뉴욕(서머타임 자동 반영) 02~06시는 2시간 간격(02,04,06), 그 외는 매시 실행 → 하루 22회
+      - name: gate
+        id: gate
+        run: |
+          h=$(TZ=America/New_York date +%-H)
+          echo "New York hour: $h"
+          if [ "${{ github.event_name }}" = "schedule" ] && { [ "$h" -eq 3 ] || [ "$h" -eq 5 ]; }; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.run == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.run == 'true'
+        with:
+          node-version: 22
+
+      - name: test notification
+        if: steps.gate.outputs.run == 'true' && github.event.inputs.test_notify == 'true'
+        run: node src/check.mjs --test-notify
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+
+      - name: check restock
+        if: steps.gate.outputs.run == 'true' && github.event.inputs.test_notify != 'true'
+        run: node src/check.mjs
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+
+      # 상태 저장 + 꺼짐 방지: 60일간 저장소 활동이 없으면 예약 실행이 자동 중단되므로
+      # 마지막 커밋이 30일 넘었으면 빈 커밋을 남긴다.
+      - name: commit state and keepalive
+        if: always() && steps.gate.outputs.run == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet -- data/state.json; then
+            git add data/state.json
+            git commit -m "chore: update state"
+          fi
+          last=$(git log -1 --format=%ct)
+          now=$(date +%s)
+          if [ $((now - last)) -gt 2592000 ]; then
+            git commit --allow-empty -m "chore: keepalive"
+          fi
+          if [ "$(git rev-list --count @{u}..HEAD)" -gt 0 ]; then
+            git pull --rebase
+            git push
+          fi

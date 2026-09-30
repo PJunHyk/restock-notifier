@@ -1,0 +1,13 @@
+{
+  "name": "thetoyspot-restock",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Personal restock notifier for thetoyspot.net (Shopify public JSON + ntfy)",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "check": "node src/check.mjs",
+    "dry": "node src/check.mjs --dry-run",
+    "test": "node --test"
+  }
+}
