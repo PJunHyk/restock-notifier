@@ -26,7 +26,7 @@
 GitHub Pages(`/docs`)에서 제공된다: https://pjunhyk.github.io/restock-notifier/
 
 - 상품명 검색 또는 상품 URL 붙여넣기 → 옵션 체크 → 저장
-- 저장하려면 설정에서 GitHub Fine-grained 토큰(이 저장소 하나, Contents 읽기/쓰기, 만료일 설정)을 넣는다. 토큰은 브라우저 localStorage에만 저장된다. 토큰이 없으면 `watchlist.json`을 내려받아 직접 커밋한다.
+- 페이지를 열려면 GitHub Fine-grained 토큰(이 저장소 하나, Contents 읽기/쓰기, 만료일 설정)이 필요하다. 토큰은 브라우저 localStorage에만 저장되고, 토큰이 없거나 유효하지 않으면 입력 화면만 보인다. (정적 페이지라 소스는 공개되므로 보안 경계가 아니라 화면 노출을 막는 용도)
 
 ## 로컬 실행
 
