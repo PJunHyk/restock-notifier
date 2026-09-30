@@ -1,6 +1,6 @@
-# thetoyspot-restock
+# restock-notifier
 
-thetoyspot.net 관심 상품 재입고 알림 (개인용). Shopify 공개 `/products.json` + ntfy + GitHub Actions.
+관심 상품 재입고 알림 (개인용). Shopify 공개 `/products.json` + ntfy + GitHub Actions.
 
 - 자동 결제 없음. 알림 버튼은 `/cart/add?...&return_to=/cart` 로 장바구니에 1개 담고 멈춘다.
 - 재고 있음/없음만 판단 (수량은 공개되지 않음).
