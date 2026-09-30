@@ -2,6 +2,8 @@
 
 관심 상품 재입고 알림 (개인용). Shopify 공개 `/products.json` + ntfy + GitHub Actions.
 
+프로젝트 설명·설계 결정·검증 내용은 [PORTFOLIO.md](PORTFOLIO.md)를 참고.
+
 - 자동 결제 없음. 알림 버튼은 `/cart/add?...&return_to=/cart` 로 장바구니에 1개 담고 멈춘다.
 - 재고 있음/없음만 판단 (수량은 공개되지 않음).
 - 첫 실행은 기준 상태만 저장하고 알림을 보내지 않는다.
